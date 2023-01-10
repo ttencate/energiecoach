@@ -1,45 +1,136 @@
 <script lang="ts">
-  import svelteLogo from './assets/svelte.svg'
-  import Counter from './lib/Counter.svelte'
+  import FormField from "./lib/FormField.svelte";
+
+  const checklist = {
+    customer: {
+      name: "",
+      emailAddress: "",
+      phoneNumber: "",
+    },
+    general: {
+      visitDate: "",
+      reportDate: "",
+    },
+    coach: {
+      name: "",
+      emailAddress: "",
+      phoneNumber: "",
+    },
+    building: {
+      street: "",
+      houseNumber: "",
+      postalCode: "",
+      city: "",
+      constructionYear: null,
+    },
+  }
+
+  let updateAddressTimeout = null
+
+  function canonicalizePostalCode(postalCode: string): string {
+    const match = postalCode.match(/^\s*(\d{4})\s*([a-zA-Z]{2})\s*$/)
+    if (match) {
+      return `${match[1]} ${match[2].toUpperCase()}`
+    } else {
+      return postalCode
+    }
+  }
+
+  function addressChanged() {
+    checklist.building.postalCode = canonicalizePostalCode(checklist.building.postalCode)
+
+    let bagViewerSearchQuery = checklist.building.postalCode.replace(' ', '') + ' ' + checklist.building.houseNumber
+    bagViewerUrl = `https://bagviewer.kadaster.nl/lvbag/bag-viewer/index.html#`
+      + `?searchQuery=${encodeURIComponent(bagViewerSearchQuery)}`
+    
+    updateAddress()
+  }
+
+  async function updateAddress() {
+    // https://github.com/PDOK/locatieserver/wiki/API-Locatieserver
+    const url = `https://geodata.nationaalgeoregister.nl/locatieserver/v3/free`
+      + `?fq=type:adres`
+      + `&fq=postcode:${encodeURIComponent(checklist.building.postalCode.replace(' ', ''))}`
+      + `&fq=huisnummer:${encodeURIComponent(checklist.building.houseNumber)}`
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`Got response code ${response.status}`)
+    }
+    const json = await response.json()
+    if (json.response.docs.length == 0) {
+      throw new Error(`Got no results`)
+    }
+
+    // First result has the highest score.
+    const doc = json.response.docs[0]
+    checklist.building.street = doc.straatnaam
+    checklist.building.city = doc.woonplaatsnaam
+  }
+
+  let bagViewerUrl = null
 </script>
 
 <main>
-  <div>
-    <a href="https://vitejs.dev" target="_blank" rel="noreferrer"> 
-      <img src="/vite.svg" class="logo" alt="Vite Logo" />
-    </a>
-    <a href="https://svelte.dev" target="_blank" rel="noreferrer"> 
-      <img src={svelteLogo} class="logo svelte" alt="Svelte Logo" />
-    </a>
-  </div>
-  <h1>Vite + Svelte</h1>
+  <h1>Energiecoach</h1>
 
-  <div class="card">
-    <Counter />
-  </div>
+  <section>
+    <h2>Klantgegevens</h2>
+    <FormField label="Naam">
+      <input type="text" bind:value={checklist.customer.name}>
+    </FormField>
+    <FormField label="Postcode">
+      <input type="text" pattern="^[0-9]{4} [A-Z]{2}$" bind:value={checklist.building.postalCode} on:change={addressChanged}>
+    </FormField>
+    <FormField label="Huisnummer">
+      <input type="text" bind:value={checklist.building.houseNumber} on:change={addressChanged}>
+    </FormField>
+    <FormField label="Straatnaam">
+      <input type="text" bind:value={checklist.building.street}>
+    </FormField>
+    <FormField label="Plaats">
+      <input type="text" bind:value={checklist.building.city}>
+    </FormField>
+    <FormField label="E-mailadres">
+      <input type="email" bind:value={checklist.customer.emailAddress}>
+    </FormField>
+    <FormField label="Telefoonnummer">
+      <input type="text" bind:value={checklist.customer.phoneNumber}>
+    </FormField>
+  </section>
 
-  <p>
-    Check out <a href="https://github.com/sveltejs/kit#readme" target="_blank" rel="noreferrer">SvelteKit</a>, the official Svelte app framework powered by Vite!
-  </p>
+  <section>
+    <h2>Algemeen</h2>
+    <FormField label="Datum bezoek">
+      <input type="date" bind:value={checklist.general.visitDate}>
+    </FormField>
+    <FormField label="Datum rapport">
+      <input type="date" bind:value={checklist.general.reportDate}>
+    </FormField>
+    <FormField label="Naam coach">
+      <input type="text" bind:value={checklist.coach.name}>
+    </FormField>
+    <FormField label="E-mailadres coach">
+      <input type="text" bind:value={checklist.coach.emailAddress}>
+    </FormField>
+    <FormField label="Telefoonnummer coach">
+      <input type="text" bind:value={checklist.coach.phoneNumber}>
+    </FormField>
+  </section>
 
-  <p class="read-the-docs">
-    Click on the Vite and Svelte logos to learn more
-  </p>
+  <section>
+    <h2>Woning</h2>
+    {#if bagViewerUrl != null}
+      <a href={bagViewerUrl} target="_blank" rel="noreferrer">Bekijk pand in BAG Viewer</a>
+    {/if}
+  </section>
 </main>
 
 <style>
-  .logo {
-    height: 6em;
-    padding: 1.5em;
-    will-change: filter;
-  }
-  .logo:hover {
-    filter: drop-shadow(0 0 2em #646cffaa);
-  }
-  .logo.svelte:hover {
-    filter: drop-shadow(0 0 2em #ff3e00aa);
-  }
-  .read-the-docs {
-    color: #888;
-  }
+  main {
+    max-width: 960px;
+    margin: 20px auto;
+    background-color: white;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    padding: 20px;
+ }
 </style>

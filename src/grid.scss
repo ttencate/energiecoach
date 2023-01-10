@@ -1,0 +1,11 @@
+.row {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+}
+
+@for $i from 1 to 12 {
+    .col-#{$i} {
+        width: $i / 12 * 100%;
+    }
+}

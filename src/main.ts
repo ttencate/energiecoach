@@ -1,4 +1,5 @@
 import './app.css'
+import './grid.scss'
 import App from './App.svelte'
 
 const app = new App({
